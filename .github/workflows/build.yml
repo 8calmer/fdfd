@@ -11,7 +11,7 @@ jobs:
 
     env:
       ANDROID_SDK_ROOT: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
-      ANDROID_HOME: ${{ github.workflow }}/.buildozer/android/platform/android-sdk
+      ANDROID_HOME: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
       ANDROIDNDK: ${{ github.workspace }}/.buildozer/android/platform/android-ndk-r25b
       PATH: /usr/bin:/usr/local/bin:${{ github.workspace }}/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:${{ github.workspace }}/.buildozer/android/platform/android-sdk/platform-tools:${{ github.workspace }}/.buildozer/android/platform/android-sdk/tools/bin:$PATH
 
@@ -68,7 +68,8 @@ jobs:
       run: |
         mkdir -p $ANDROID_HOME/cmdline-tools
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O commandlinetools.zip
-        unzip commandlinetools.zip -d $ANDROID_HOME/cmdline-tools
+        ls -la commandlinetools.zip
+        unzip -q commandlinetools.zip -d $ANDROID_HOME/cmdline-tools
         mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
         rm commandlinetools.zip
 
@@ -76,7 +77,7 @@ jobs:
       run: |
         mkdir -p $HOME/.buildozer/android/platform
         wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O ndk.zip
-        unzip ndk.zip -d $HOME/.buildozer/android/platform
+        unzip -q ndk.zip -d $HOME/.buildozer/android/platform
         rm ndk.zip
 
     - name: Initialize Buildozer environment
