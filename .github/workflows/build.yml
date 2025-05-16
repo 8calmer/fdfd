@@ -1,24 +1,25 @@
-name Build Kivy APK
+name: Build Kivy APK
 
-on
-  push
-    branches [ main ]
+on:
+  push:
+    branches:
+      - main
 
-jobs
-  build
-    runs-on ubuntu-latest
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-    steps
-    - uses actionscheckout@v4
+    steps:
+    - uses: actions/checkout@v4
 
-    - name Build APK
-      uses digreatbrianbuildozer-action@v2
-      with
-        python-version 3.8
-        buildozer-cmd buildozer -v android debug
+    - name: Build APK
+      uses: digreatbrian/buildozer-action@v2
+      with:
+        python-version: 3.8
+        buildozer-cmd: buildozer -v android debug
 
-    - name Upload APK artifact
-      uses actionsupload-artifact@v4
-      with
-        name apk
-        path .bin.apk
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: apk
+        path: ./bin/*.apk
