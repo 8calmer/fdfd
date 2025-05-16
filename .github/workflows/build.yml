@@ -4,23 +4,81 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-22.04
 
+    env:
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
+      ANDROID_HOME: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
+      PATH: ${{ github.workspace }}/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:${{ github.workspace }}/.buildozer/android/platform/android-sdk/platform-tools:${{ github.workspace }}/.buildozer/android/platform/android-sdk/tools/bin:$PATH
+
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.8
+        cache: 'pip'
+
+    - name: Install dependencies for Buildozer
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          python3-pip \
+          python3-setuptools \
+          zip \
+          unzip \
+          openjdk-11-jdk \
+          libncurses5 \
+          libstdc++6 \
+          libffi-dev \
+          libssl-dev \
+          libsqlite3-dev \
+          libjpeg-dev \
+          libfreetype6-dev \
+          liblzma-dev \
+          libbz2-dev \
+          libreadline-dev \
+          libffi-dev \
+          libssl-dev \
+          libncursesw5 \
+          libgdbm-dev \
+          libnss3-dev \
+          libsqlite3-dev \
+          liblzma-dev \
+          libtk8.6 \
+          libgdbm-compat-dev \
+          libx11-dev \
+          libxext-dev \
+          libxrandr-dev \
+          libxinerama-dev \
+          libxcursor-dev \
+          libxi-dev
+
+    - name: Install Buildozer and dependencies
+      run: |
+        python3 -m pip install --upgrade pip setuptools wheel
+        python3 -m pip install buildozer cython
 
     - name: Accept Android SDK licenses
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
+    - name: Update Android SDK and install build-tools, platform-tools, and platforms
+      run: |
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --update
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2" "build-tools;36.0.0"
+
     - name: Build APK with Buildozer
-      uses: digreatbrian/buildozer-action@v2
-      with:
-        python-version: 3.8
-        buildozer-cmd: buildozer -v android debug
+      run: |
+        buildozer android debug
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
