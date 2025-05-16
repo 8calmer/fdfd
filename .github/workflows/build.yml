@@ -4,13 +4,13 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
 
 jobs:
   build:
     runs-on: ubuntu-22.04
+    # Если используете контейнер, укажите его здесь, например:
+    # container:
+    #   image: your-custom-image
 
     env:
       ANDROID_SDK_ROOT: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
@@ -19,10 +19,9 @@ jobs:
 
     steps:
     - name: Install tar
-      run: sudo apt-get update && sudo apt-get install -y tar
+      run: apt-get update && apt-get install -y tar
 
-    - name: Checkout repository
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Set up Python 3.8
       uses: actions/setup-python@v4
@@ -32,8 +31,8 @@ jobs:
 
     - name: Install dependencies for Buildozer
       run: |
-        sudo apt-get update
-        sudo apt-get install -y \
+        apt-get update
+        apt-get install -y \
           python3-pip \
           python3-setuptools \
           zip \
@@ -71,8 +70,7 @@ jobs:
         python3 -m pip install buildozer cython
 
     - name: Accept Android SDK licenses
-      run: |
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+      run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
     - name: Update Android SDK and install build-tools, platform-tools, and platforms
       run: |
