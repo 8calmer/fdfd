@@ -18,6 +18,9 @@ jobs:
       PATH: ${{ github.workspace }}/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:${{ github.workspace }}/.buildozer/android/platform/android-sdk/platform-tools:${{ github.workspace }}/.buildozer/android/platform/android-sdk/tools/bin:$PATH
 
     steps:
+    - name: Install tar
+      run: sudo apt-get update && sudo apt-get install -y tar
+
     - name: Checkout repository
       uses: actions/checkout@v4
 
@@ -62,7 +65,7 @@ jobs:
           libxcursor-dev \
           libxi-dev
 
-    - name: Install Buildozer and dependencies
+    - name: Install Buildozer and Cython
       run: |
         python3 -m pip install --upgrade pip setuptools wheel
         python3 -m pip install buildozer cython
@@ -77,8 +80,7 @@ jobs:
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2" "build-tools;36.0.0"
 
     - name: Build APK with Buildozer
-      run: |
-        buildozer android debug
+      run: buildozer android debug
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
