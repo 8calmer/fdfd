@@ -10,7 +10,7 @@ import os
 
 
 config = {
-    "api_url": "http://localhost:8111/api/images",
+    "api_url": "http://192.168.1.132:8111/api/images",
     "timeout_slide": 5
 }
 
