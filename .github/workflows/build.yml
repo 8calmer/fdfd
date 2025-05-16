@@ -11,7 +11,7 @@ jobs:
 
     env:
       ANDROID_SDK_ROOT: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
-      ANDROID_HOME: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
+      ANDROID_HOME: ${{ github.workflow }}/.buildozer/android/platform/android-sdk
       ANDROIDNDK: ${{ github.workspace }}/.buildozer/android/platform/android-ndk-r25b
       PATH: /usr/bin:/usr/local/bin:${{ github.workspace }}/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:${{ github.workspace }}/.buildozer/android/platform/android-sdk/platform-tools:${{ github.workspace }}/.buildozer/android/platform/android-sdk/tools/bin:$PATH
 
@@ -79,10 +79,19 @@ jobs:
         unzip ndk.zip -d $HOME/.buildozer/android/platform
         rm ndk.zip
 
+    - name: Initialize Buildozer environment
+      run: buildozer android debug --verbose
+      continue-on-error: true
+
+    - name: Debug Python-for-Android directory
+      run: |
+        find /home/runner/work/fdfd/fdfd/.buildozer/android/platform -name jnius_utils.pxi
+
     - name: Patch jnius_utils.pxi
       run: |
         sed -i 's/isinstance(arg, long)/isinstance(arg, int)/g' \
         /home/runner/work/fdfd/fdfd/.buildozer/android/platform/python-for-android/pythonforandroid/recipes/pyjnius/jnius/jnius_utils.pxi
+      continue-on-error: true
 
     - name: Accept Android SDK licenses
       run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
