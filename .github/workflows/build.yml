@@ -17,6 +17,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Debug directory contents
+      run: ls -la
+
     - name: Set up Python 3.8
       uses: actions/setup-python@v4
       with:
@@ -43,13 +46,9 @@ jobs:
           liblzma-dev \
           libbz2-dev \
           libreadline-dev \
-          libffi-dev \
-          libssl-dev \
           libncursesw5 \
           libgdbm-dev \
           libnss3-dev \
-          libsqlite3-dev \
-          liblzma-dev \
           libtk8.6 \
           libgdbm-compat-dev \
           libx11-dev \
@@ -63,6 +62,14 @@ jobs:
       run: |
         python3 -m pip install --upgrade pip setuptools wheel
         python3 -m pip install buildozer cython
+
+    - name: Install Android SDK Command Line Tools
+      run: |
+        mkdir -p $ANDROID_HOME/cmdline-tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O commandlinetools.zip
+        unzip commandlinetools.zip -d $ANDROID_HOME/cmdline-tools
+        mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+        rm commandlinetools.zip
 
     - name: Accept Android SDK licenses
       run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
