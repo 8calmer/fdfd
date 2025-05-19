@@ -1,59 +1,168 @@
-name: Build
+name: Build Android APK
+
 on:
   push:
-    branches-ignore:
-      - data
-      - gh-pages
-    tags:
-      - '**'
+    branches:
+      - main
   pull_request:
-    branches-ignore:
-      - data
-      - gh-pages
+    branches:
+      - main
 
 jobs:
-  build-android:
-    name: Build for Android
+  build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          path: master
+    - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.7'
-          architecture: x64
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
 
-      - name: Build Docker image
-        run: |
-          docker build -t custom-buildozer -f master/.github/actions/buildozer/Dockerfile master
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          git zip unzip \
+          openjdk-11-jdk \
+          python3-pip \
+          autoconf libtool pkg-config \
+          zlib1g-dev libncurses-dev \
+          cmake libffi-dev libssl-dev
 
-      - name: Run Buildozer in Docker
-        id: buildozer
-        run: |
-          docker run --rm -v $(pwd)/master:/app custom-buildozer buildozer android debug
-          echo "filename=$(ls master/bin/*.apk)" >> $GITHUB_OUTPUT
+        # Install Gradle 7.5
+        wget -q https://services.gradle.org/distributions/gradle-7.5-bin.zip
+        unzip -q gradle-7.5-bin.zip -d /opt
+        echo "GRADLE_HOME=/opt/gradle-7.5" >> $GITHUB_ENV
+        echo "PATH=$PATH:/opt/gradle-7.5/bin" >> $GITHUB_ENV
 
-      - name: Check artifact
-        run: ls -l ${{ steps.buildozer.outputs.filename }}
+        # Upgrade pip
+        pip install --upgrade pip
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: package
-          path: ${{ steps.buildozer.outputs.filename }}
-          if-no-files-found: error
+        # Install Android Command Line Tools
+        mkdir -p ~/android-sdk/cmdline-tools/latest
+        cd ~/android-sdk
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip -d tmp
+        rm commandlinetools-linux-9477386_latest.zip
 
-      - name: Checkout data branch
-        if: github.event_name == 'push'
-        uses: actions/checkout@v4
-        with:
-          path: data
-          ref: data
+        # Move files to correct location
+        if [ -d "tmp/cmdline-tools" ]; then
+          mv tmp/cmdline-tools/* cmdline-tools/latest/
+        else
+          mv tmp/* cmdline-tools/latest/
+        fi
+        rm -rf tmp
 
-      - name: Push binary to data branch
-        if: github.event_name == 'push'
-        run: python master/.ci/move_binary.py "${{ steps.buildozer.outputs.filename }}" master data bin
+        # Verify installation
+        if [ ! -f "cmdline-tools/latest/bin/sdkmanager" ]; then
+          echo "Android SDK tools not properly installed!"
+          ls -R cmdline-tools/
+          exit 1
+        fi
+
+        # Accept all SDK licenses
+        yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk --licenses
+
+        # Install required components
+        ~/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk --install \
+          "platform-tools" \
+          "platforms;android-31" \
+          "build-tools;31.0.0" \
+          "ndk;23.1.7779620"
+
+        # Set environment variables
+        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "ANDROID_NDK_HOME=$HOME/android-sdk/ndk/23.1.7779620" >> $GITHUB_ENV
+        echo "PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$HOME/android-sdk/build-tools/31.0.0" >> $GITHUB_ENV
+
+        pip install buildozer==1.5.0 cython==0.29.36 kivy==2.1.0 virtualenv
+
+    - name: Update buildozer.spec
+      run: |
+        # Check if buildozer.spec exists, initialize if missing
+        if [ ! -f buildozer.spec ]; then
+          echo "buildozer.spec not found, initializing..."
+          buildozer init
+        fi
+
+        # Clean and update buildozer.spec
+        awk '!/android.allow_backup =/' buildozer.spec > temp && mv temp buildozer.spec
+        awk '!/android.arch =/' buildozer.spec > temp && mv temp buildozer.spec
+        awk '!/android.archs =/' buildozer.spec > temp && mv temp buildozer.spec
+        awk '!/android.api =/' buildozer.spec > temp && mv temp buildozer.spec
+        awk '!/android.ndk =/' buildozer.spec > temp && mv temp buildozer.spec
+        awk '!/android.ndk_path =/' buildozer.spec > temp && mv temp buildozer.spec
+        awk '!/android.sdk_path =/' buildozer.spec > temp && mv temp buildozer.spec
+        awk '!/android.build_tools_version =/' buildozer.spec > temp && mv temp buildozer.spec
+        awk '!/requirements =/' buildozer.spec > temp && mv temp buildozer.spec
+        awk '!/android.enable_androidx =/' buildozer.spec > temp && mv temp buildozer.spec
+        awk '!/p4a.branch =/' buildozer.spec > temp && mv temp buildozer.spec
+
+        echo "android.allow_backup = True" >> buildozer.spec
+        echo "android.archs = arm64-v8a,armeabi-v7a" >> buildozer.spec
+        echo "android.api = 31" >> buildozer.spec
+        echo "android.ndk = 23.1.7779620" >> buildozer.spec
+        echo "android.ndk_path = $HOME/android-sdk/ndk/23.1.7779620" >> buildozer.spec
+        echo "android.sdk_path = $HOME/android-sdk" >> buildozer.spec
+        echo "android.build_tools_version = 31.0.0" >> buildozer.spec
+        echo "requirements = python3,kivy==2.1.0" >> buildozer.spec
+        echo "android.enable_androidx = False" >> buildozer.spec
+        echo "p4a.branch = stable" >> buildozer.spec
+
+    - name: Build APK
+      run: |
+        rm -rf .buildozer || true
+
+        # Verify tools
+        which aidl || { echo "AIDL not found in build-tools!"; exit 1; }
+        which aapt || { echo "AAPT not found in build-tools!"; exit 1; }
+        which sdkmanager || { echo "sdkmanager not found!"; exit 1; }
+
+        # Debug environment
+        echo "ANDROID_HOME=$ANDROID_HOME"
+        echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+        echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
+        ls -l $HOME/android-sdk/build-tools/
+        ls -l $HOME/android-sdk/ndk/
+        gradle --version || { echo "Gradle not installed correctly!"; exit 1; }
+
+        # Run buildozer with verbose output
+        buildozer -v android debug 2>&1 | tee buildozer.log
+
+        # Debug distribution directory
+        echo "Listing distribution directory:"
+        ls -la .buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists/calculatorapp/ || true
+
+        # Ensure gradlew is executable
+        if [ -f .buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists/calculatorapp/gradlew ]; then
+          chmod +x .buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists/calculatorapp/gradlew
+        else
+          echo "gradlew not found! Retrying build..."
+          rm -rf .buildozer/android/platform/build-*
+          buildozer -v android debug 2>&1 | tee -a buildozer.log
+          if [ ! -f .buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists/calculatorapp/gradlew ]; then
+            echo "gradlew still not found after retry!"
+            cat buildozer.log
+            exit 1
+          fi
+          chmod +x .buildozer/android/platform/build-arm64-v8a_armeabi-v7a/dists/calculatorapp/gradlew
+        fi
+
+        # Check for APK
+        if [ ! -f bin/*.apk ]; then
+          echo "Build failed! Showing logs:"
+          cat .buildozer/android/platform/build-*/build.out || true
+          cat .buildozer/android/platform/build-*/build.err || true
+          cat buildozer.log || true
+          exit 1
+        fi
+
+        ls -la bin/
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: calculator-app
+        path: bin/*.apk
