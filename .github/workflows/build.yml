@@ -12,16 +12,20 @@ on:
       - gh-pages
 
 jobs:
-  # Build job. Builds app for Android with Buildozer
   build-android:
     name: Build for Android
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-20.04 # Используем Ubuntu 20.04 для лучшей совместимости с Buildozer
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
           path: master
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.7'
+          architecture: x64
 
       - name: Build with Buildozer
         uses: ArtemSBulgakov/buildozer-action@v1
@@ -32,22 +36,18 @@ jobs:
           buildozer_version: stable
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: package
           path: ${{ steps.buildozer.outputs.filename }}
+          if-no-files-found: error
 
-      - name: Checkout
-        uses: actions/checkout@v2
+      - name: Checkout data branch
+        if: github.event_name == 'push'
+        uses: actions/checkout@v4
         with:
           path: data
-          ref: data # Branch name
-
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.7
-          architecture: x64
+          ref: data # Ветка data
 
       - name: Push binary to data branch
         if: github.event_name == 'push'
