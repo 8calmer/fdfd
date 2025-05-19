@@ -1,59 +1,59 @@
 name: Build
-   on:
-     push:
-       branches-ignore:
-         - data
-         - gh-pages
-       tags:
-         - '**'
-     pull_request:
-       branches-ignore:
-         - data
-         - gh-pages
+on:
+  push:
+    branches-ignore:
+      - data
+      - gh-pages
+    tags:
+      - '**'
+  pull_request:
+    branches-ignore:
+      - data
+      - gh-pages
 
-   jobs:
-     build-android:
-       name: Build for Android
-       runs-on: ubuntu-22.04
-       steps:
-         - name: Checkout code
-           uses: actions/checkout@v4
-           with:
-             path: master
+jobs:
+  build-android:
+    name: Build for Android
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          path: master
 
-         - name: Set up Python
-           uses: actions/setup-python@v5
-           with:
-             python-version: '3.7'
-             architecture: x64
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.7'
+          architecture: x64
 
-         - name: Build Docker image
-           run: |
-             docker build -t custom-buildozer -f .github/actions/buildozer/Dockerfile .
+      - name: Build Docker image
+        run: |
+          docker build -t custom-buildozer -f .github/actions/buildozer/Dockerfile .
 
-         - name: Run Buildozer in Docker
-           id: buildozer
-           run: |
-             docker run --rm -v $(pwd)/master/test_app:/app custom-buildozer buildozer android debug
-             echo "filename=$(ls master/test_app/bin/*.apk)" >> $GITHUB_OUTPUT
+      - name: Run Buildozer in Docker
+        id: buildozer
+        run: |
+          docker run --rm -v $(pwd)/master/test_app:/app custom-buildozer buildozer android debug
+          echo "filename=$(ls master/test_app/bin/*.apk)" >> $GITHUB_OUTPUT
 
-         - name: Check artifact
-           run: ls -l ${{ steps.buildozer.outputs.filename }}
+      - name: Check artifact
+        run: ls -l ${{ steps.buildozer.outputs.filename }}
 
-         - name: Upload artifacts
-           uses: actions/upload-artifact@v4
-           with:
-             name: package
-             path: ${{ steps.buildozer.outputs.filename }}
-             if-no-files-found: error
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: ${{ steps.buildozer.outputs.filename }}
+          if-no-files-found: error
 
-         - name: Checkout data branch
-           if: github.event_name == 'push'
-           uses: actions/checkout@v4
-           with:
-             path: data
-             ref: data
+      - name: Checkout data branch
+        if: github.event_name == 'push'
+        uses: actions/checkout@v4
+        with:
+          path: data
+          ref: data
 
-         - name: Push binary to data branch
-           if: github.event_name == 'push'
-           run: python master/.ci/move_binary.py "${{ steps.buildozer.outputs.filename }}" master data bin
+      - name: Push binary to data branch
+        if: github.event_name == 'push'
+        run: python master/.ci/move_binary.py "${{ steps.buildozer.outputs.filename }}" master data bin
