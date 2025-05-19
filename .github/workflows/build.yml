@@ -14,7 +14,7 @@ on:
 jobs:
   build-android:
     name: Build for Android
-    runs-on: ubuntu-20.04 # Используем Ubuntu 20.04 для лучшей совместимости с Buildozer
+    runs-on: ubuntu-22.04 # Переходим на Ubuntu 22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,6 +27,15 @@ jobs:
           python-version: '3.7'
           architecture: x64
 
+      - name: Install Buildozer dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libncurses5-dev libncursesw5-dev \
+            libreadline-dev libssl-dev zlib1g-dev libbz2-dev libsqlite3-dev \
+            python3-dev python3-pip openjdk-8-jdk
+          pip install --upgrade pip
+          pip install cython==0.29.36
+
       - name: Build with Buildozer
         uses: ArtemSBulgakov/buildozer-action@v1
         id: buildozer
@@ -34,6 +43,9 @@ jobs:
           repository_root: master
           workdir: test_app
           buildozer_version: stable
+
+      - name: Check artifact
+        run: ls -l ${{ steps.buildozer.outputs.filename }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
