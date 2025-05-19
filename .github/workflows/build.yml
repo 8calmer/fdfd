@@ -29,13 +29,13 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t custom-buildozer -f .github/actions/buildozer/Dockerfile .
+          docker build -t custom-buildozer -f master/.github/actions/buildozer/Dockerfile master
 
       - name: Run Buildozer in Docker
         id: buildozer
         run: |
-          docker run --rm -v $(pwd)/master/test_app:/app custom-buildozer buildozer android debug
-          echo "filename=$(ls master/test_app/bin/*.apk)" >> $GITHUB_OUTPUT
+          docker run --rm -v $(pwd)/master:/app custom-buildozer buildozer android debug
+          echo "filename=$(ls master/bin/*.apk)" >> $GITHUB_OUTPUT
 
       - name: Check artifact
         run: ls -l ${{ steps.buildozer.outputs.filename }}
