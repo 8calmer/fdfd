@@ -1,13 +1,6 @@
 FROM python:3.7-buster
 
-# Install AdoptOpenJDK 8
-RUN apt-get update && apt-get install -y wget apt-transport-https gnupg && \
-    wget -qO - https://adoptopenjdk.jfrog.io/adoptopenjdk/api/gpg/key/public | apt-key add - && \
-    echo "deb https://adoptopenjdk.jfrog.io/adoptopenjdk/deb buster main" | tee /etc/apt/sources.list.d/adoptopenjdk.list && \
-    apt-get update && apt-get install -y adoptopenjdk-8-hotspot && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install Buildozer dependencies
+# Install Buildozer dependencies, including OpenJDK 11
 RUN apt-get update && apt-get install -y \
     build-essential \
     libncurses5-dev \
@@ -19,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     libsqlite3-dev \
     python3-dev \
     python3-pip \
+    openjdk-11-jdk \
     libffi-dev \
     libpython3-dev \
     git \
