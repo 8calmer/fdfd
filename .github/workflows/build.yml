@@ -1,66 +1,59 @@
 name: Build
-on:
-  push:
-    branches-ignore:
-      - data
-      - gh-pages
-    tags:
-      - '**'
-  pull_request:
-    branches-ignore:
-      - data
-      - gh-pages
+   on:
+     push:
+       branches-ignore:
+         - data
+         - gh-pages
+       tags:
+         - '**'
+     pull_request:
+       branches-ignore:
+         - data
+         - gh-pages
 
-jobs:
-  build-android:
-    name: Build for Android
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          path: master
+   jobs:
+     build-android:
+       name: Build for Android
+       runs-on: ubuntu-22.04
+       steps:
+         - name: Checkout code
+           uses: actions/checkout@v4
+           with:
+             path: master
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.7'
-          architecture: x64
+         - name: Set up Python
+           uses: actions/setup-python@v5
+           with:
+             python-version: '3.7'
+             architecture: x64
 
-      - name: Install Buildozer dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential libncurses5-dev libncursesw5-dev \
-            libreadline-dev libssl-dev zlib1g-dev libbz2-dev libsqlite3-dev \
-            python3-dev python3-pip openjdk-8-jdk libffi-dev libpython3-dev
-          pip install --upgrade pip
-          pip install cython==0.29.36
+         - name: Build Docker image
+           run: |
+             docker build -t custom-buildozer -f .github/actions/buildozer/Dockerfile .
 
-      - name: Build with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
-        with:
-          repository_root: master
-          workdir: test_app
-          buildozer_version: stable
+         - name: Run Buildozer in Docker
+           id: buildozer
+           run: |
+             docker run --rm -v $(pwd)/master/test_app:/app custom-buildozer buildozer android debug
+             echo "filename=$(ls master/test_app/bin/*.apk)" >> $GITHUB_OUTPUT
 
-      - name: Check artifact
-        run: ls -l ${{ steps.buildozer.outputs.filename }}
+         - name: Check artifact
+           run: ls -l ${{ steps.buildozer.outputs.filename }}
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: package
-          path: ${{ steps.buildozer.outputs.filename }}
-          if-no-files-found: error
+         - name: Upload artifacts
+           uses: actions/upload-artifact@v4
+           with:
+             name: package
+             path: ${{ steps.buildozer.outputs.filename }}
+             if-no-files-found: error
 
-      - name: Checkout data branch
-        if: github.event_name == 'push'
-        uses: actions/checkout@v4
-        with:
-          path: data
-          ref: data
+         - name: Checkout data branch
+           if: github.event_name == 'push'
+           uses: actions/checkout@v4
+           with:
+             path: data
+             ref: data
 
-      - name: Push binary to data branch
-        if: github.event_name == 'push'
-        run: python master/.ci/move_binary.py "${{ steps.buildozer.outputs.filename }}" master data bin
+         - name: Push binary to data branch
+           if: github.event_name == 'push'
+           run: python master/.ci/move_binary.py "${{ steps.buildozer.outputs.filename }}" master data bin
