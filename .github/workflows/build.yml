@@ -1,112 +1,46 @@
-name: Build Kivy APK
-
+name: CI
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 1,15 * *'
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
-
-    env:
-      ANDROID_SDK_ROOT: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
-      ANDROID_HOME: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
-      ANDROIDNDK: ${{ github.workspace }}/.buildozer/android/platform/android-ndk-r25b
-      PATH: /usr/bin:/usr/local/bin:${{ github.workspace }}/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:${{ github.workspace }}/.buildozer/android/platform/android-sdk/platform-tools:${{ github.workspace }}/.buildozer/android/platform/android-sdk/tools/bin:$PATH
+    runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v2
 
-    - name: Debug directory contents
-      run: ls -la
+      # used to cache dependencies with a timeout
+      - name: Get Date
+        id: get-date
+        run: |
+          echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
+        shell: bash
 
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.8
-        cache: 'pip'
+      - name: Cache Buildozer global directory
+        uses: actions/cache@v2
+        with:
+          path: .buildozer_global
+          key: buildozer-global-${{ hashFiles('buildozer.spec') }} # Replace with your path
 
-    - name: Install dependencies for Buildozer
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          tar \
-          python3-pip \
-          python3-setuptools \
-          zip \
-          unzip \
-          openjdk-11-jdk \
-          libncurses5 \
-          libstdc++6 \
-          libffi-dev \
-          libssl-dev \
-          libsqlite3-dev \
-          libjpeg-dev \
-          libfreetype6-dev \
-          liblzma-dev \
-          libbz2-dev \
-          libreadline-dev \
-          libncursesw5 \
-          libgdbm-dev \
-          libnss3-dev \
-          libtk8.6 \
-          libgdbm-compat-dev \
-          libx11-dev \
-          libxext-dev \
-          libxrandr-dev \
-          libxinerama-dev \
-          libxcursor-dev \
-          libxi-dev
+      - uses: actions/cache@v2
+        with:
+          path: .buildozer
+          key: ${{ runner.os }}-${{ steps.get-date.outputs.date }}-${{ hashFiles('buildozer.spec') }}
 
-    - name: Install Buildozer, Cython, and pyjnius
-      run: |
-        python3 -m pip install --upgrade pip setuptools wheel
-        python3 -m pip install buildozer cython==0.29.36 pyjnius==1.6.1
+      - name: Build with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          command: buildozer android debug
+          buildozer_version: master
 
-    - name: Install Android SDK Command Line Tools
-      run: |
-        mkdir -p $ANDROID_HOME/cmdline-tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O commandlinetools.zip
-        ls -la commandlinetools.zip
-        unzip -q commandlinetools.zip -d $ANDROID_HOME/cmdline-tools
-        mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-        rm commandlinetools.zip
-
-    - name: Install Android NDK
-      run: |
-        mkdir -p $HOME/.buildozer/android/platform
-        wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O ndk.zip
-        unzip -q ndk.zip -d $HOME/.buildozer/android/platform
-        rm ndk.zip
-
-    - name: Initialize Buildozer environment
-      run: buildozer android debug --verbose
-      continue-on-error: true
-
-    - name: Debug Python-for-Android directory
-      run: |
-        find /home/runner/work/fdfd/fdfd/.buildozer/android/platform -name jnius_utils.pxi
-
-    - name: Patch jnius_utils.pxi
-      run: |
-        sed -i 's/isinstance(arg, long)/isinstance(arg, int)/g' \
-        /home/runner/work/fdfd/fdfd/.buildozer/android/platform/python-for-android/pythonforandroid/recipes/pyjnius/jnius/jnius_utils.pxi
-      continue-on-error: true
-
-    - name: Accept Android SDK licenses
-      run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-
-    - name: Update Android SDK and install build-tools, platform-tools, and platforms
-      run: |
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --update
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2" "build-tools;36.0.0"
-
-    - name: Build APK with Buildozer
-      run: buildozer android debug
-
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: apk
-        path: ./bin/*.apk
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: package
+          path: ${{ steps.buildozer.outputs.filename }}
